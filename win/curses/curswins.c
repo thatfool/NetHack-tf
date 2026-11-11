@@ -54,6 +54,8 @@ static nethack_wid *nhwids = NULL;      /* NetHack wid array */
 
 static boolean is_main_window(winid wid);
 static void write_char(WINDOW * win, int x, int y, nethack_char ch);
+static void write_map_cell(WINDOW *win, int x, int y, nethack_char nch);
+static void write_wide(WINDOW *win, int x, int y, nethack_char nch);
 static void clear_map(void);
 
 /* Create a window with the specified size and orientation */
@@ -413,7 +415,7 @@ curses_add_nhwin(
         break;
     case MAP_WIN:
         mapwin = win;
-        map_clipped = (width < COLNO || height < ROWNO);
+        map_clipped = (width < COLNO * CURSES_MAP_CW || height < ROWNO);
         break;
     }
 
@@ -575,12 +577,10 @@ curses_putch(winid wid, int x, int y, int ch,
     (void) curses_map_borders(&sx, &sy, &ex, &ey, -1, -1);
 
     if ((x >= sx) && (x <= ex) && (y >= sy) && (y <= ey)) {
-        if (border) {
-            x++;
-            y++;
-        }
+        int bspace = border ? 1 : 0;
 
-        write_char(mapwin, x - sx, y - sy, nch);
+        write_map_cell(mapwin, (x - sx) * CURSES_MAP_CW + bspace,
+                       y - sy + bspace, nch);
     }
     /* refresh after every character?
      * Fair go, mate! Some of us are playing from Australia! */
@@ -870,6 +870,30 @@ write_char(WINDOW * win, int x, int y, nethack_char nch)
     curses_toggle_color_attr(win, curscolor, cursattr, OFF);
 }
 
+/* Draw one map cell at screen column x, taking wide_map_cells into account.
+   With wide_map_cells, a map column translates to two terminal columns.
+*/
+static void
+write_map_cell(WINDOW *win, int x, int y, nethack_char nch)
+{
+    write_char(win, x, y, nch);
+    if (CURSES_MAP_CW > 1) {
+        nethack_char fill = { .ch = ' ' };
+        write_char(win, x + 1, y, fill);
+    }
+}
+
+/* Fill all the terminal columns of one map cell with the same character
+   (used for the map scrollbars). */
+static void
+write_wide(WINDOW *win, int x, int y, nethack_char nch)
+{
+    int i;
+
+    for (i = 0; i < CURSES_MAP_CW; i++)
+        write_char(win, x + i, y, nch);
+}
+
 
 /* Draw the entire visible map onto the screen given the visible map
 boundaries */
@@ -925,13 +949,16 @@ curses_draw_map(int sx, int sy, int ex, int ey)
             --sbex;
 
         for (count = 0; count < sbsx; count++) {
-            write_char(mapwin, count + bspace, ey - sy + 1 + bspace, hsb_back);
+            write_wide(mapwin, count * CURSES_MAP_CW + bspace,
+                       ey - sy + 1 + bspace, hsb_back);
         }
         for (count = sbsx; count <= sbex; count++) {
-            write_char(mapwin, count + bspace, ey - sy + 1 + bspace, hsb_bar);
+            write_wide(mapwin, count * CURSES_MAP_CW + bspace,
+                       ey - sy + 1 + bspace, hsb_bar);
         }
         for (count = sbex + 1; count <= (ex - sx); count++) {
-            write_char(mapwin, count + bspace, ey - sy + 1 + bspace, hsb_back);
+            write_wide(mapwin, count * CURSES_MAP_CW + bspace,
+                       ey - sy + 1 + bspace, hsb_back);
         }
     }
 
@@ -946,21 +973,24 @@ curses_draw_map(int sx, int sy, int ex, int ey)
             --sbey;
 
         for (count = 0; count < sbsy; count++) {
-            write_char(mapwin, ex - sx + 1 + bspace, count + bspace, vsb_back);
+            write_char(mapwin, (ex - sx + 1) * CURSES_MAP_CW + bspace,
+                       count + bspace, vsb_back);
         }
         for (count = sbsy; count <= sbey; count++) {
-            write_char(mapwin, ex - sx + 1 + bspace, count + bspace, vsb_bar);
+            write_char(mapwin, (ex - sx + 1) * CURSES_MAP_CW + bspace,
+                       count + bspace, vsb_bar);
         }
         for (count = sbey + 1; count <= (ey - sy); count++) {
-            write_char(mapwin, ex - sx + 1 + bspace, count + bspace, vsb_back);
+            write_char(mapwin, (ex - sx + 1) * CURSES_MAP_CW + bspace,
+                       count + bspace, vsb_back);
         }
     }
 #endif /* MAP_SCROLLBARS */
 
     for (curx = sx; curx <= ex; curx++) {
         for (cury = sy; cury <= ey; cury++) {
-            write_char(mapwin, curx - sx + bspace, cury - sy + bspace,
-                       map[cury][curx]);
+            write_map_cell(mapwin, (curx - sx) * CURSES_MAP_CW + bspace,
+                           cury - sy + bspace, map[cury][curx]);
         }
     }
 }
@@ -1019,6 +1049,7 @@ curses_map_borders(int *sx, int *sy, int *ex, int *ey, int ux, int uy)
     }
 
     curses_get_window_size(MAP_WIN, &height, &width);
+    width /= CURSES_MAP_CW; /* from terminal columns to map cells */
 
 #ifdef MAP_SCROLLBARS
     if (width < COLNO) {

@@ -888,6 +888,9 @@ static int optfn_##a(int, int, boolean, char *, char *);
     NHOPTB(whatis_moveskip, Advanced, 0, opt_in, set_in_game,
            Off, Yes, No, No, NoAlias, &iflags.getloc_moveskip, Term_False,
            "skip same glyph when getting map location")
+    NHOPTB(wide_map_cells, Advanced, 0, opt_in, set_in_config,
+           Off, Yes, No, No, NoAlias, &iflags.wide_map_cells, Term_False,
+           "use two terminal columns per map cell (curses only)")
     NHOPTC(windowborders, Advanced, 9, opt_in, set_in_game,
                 Yes, Yes, No, Yes, NoAlias, "0 (off), 1 (on), 2 (auto)")
 #ifdef WINCHAIN

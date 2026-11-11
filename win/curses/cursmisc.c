@@ -659,8 +659,10 @@ curses_move_cursor(winid wid, int x, int y)
     }
 
     if (x >= sx && x <= ex && y >= sy && y <= ey) {
-        /* map column #0 isn't used; shift column #1 to first screen column */
-        curs_x -= (sx + 1);
+        /* map column #0 isn't used; shift column #1 to first screen column;
+           with wide_map_cells each map column takes CURSES_MAP_CW columns */
+        curs_x = (x - sx - 1) * CURSES_MAP_CW + xadj
+                 + (curses_window_has_border(wid) ? 1 : 0);
         curs_y -= sy;
 #ifdef PDCURSES
         move(curs_y, curs_x);
@@ -1012,7 +1014,7 @@ curses_get_mouse(coordxy *mousex, coordxy *mousey, int *mod)
             /* See if coords are in map window & convert coords */
             if (wmouse_trafo(mapwin, &event.y, &event.x, FALSE)) {
                 key = '\0'; /* core uses this to detect a mouse click */
-                *mousex = event.x + 1; /* +1: screen 0..78 is map 1..79 */
+                *mousex = event.x;
                 *mousey = event.y;
 
                 if (curses_window_has_border(MAP_WIN)) {
@@ -1020,11 +1022,15 @@ curses_get_mouse(coordxy *mousex, coordxy *mousey, int *mod)
                     (*mousey)--;
                 }
 
+                /* Account for double wide map cells */
+                *mousex /= CURSES_MAP_CW;
+
                 /* Account for scroll offset */
                 (void) curses_map_borders(&sx, &sy, &ex, &ey, -1, -1);
                 *mousex += sx;
                 *mousey += sy;
 
+                *mousex += 1; /* +1: screen 0..78 is map 1..79 */
                 *mod = ((event.bstate & (BUTTON1_CLICKED | BUTTON_CTRL))
                         == BUTTON1_CLICKED) ? CLICK_1 : CLICK_2;
             }

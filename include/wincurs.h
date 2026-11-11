@@ -33,6 +33,8 @@ extern WINDOW *activemenu;         /* curses window for menu requesting a
 #define TEXT_WIN    5
 #define MENU_WIN    6
 #define NHWIN_MAX   7
+/* terminal columns used per map cell (wide_map_cells option) */
+#define CURSES_MAP_CW (iflags.wide_map_cells ? 2 : 1)
 #if !defined(__APPLE__) || !defined(NCURSES_VERSION)
 # define USE_DARKGRAY /* Allow "bright" black; delete if not visible */
 #endif  /* !__APPLE__ && !PDCURSES */

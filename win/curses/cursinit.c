@@ -70,7 +70,7 @@ set_window_position(int *winx, int *winy, int *winw, int *winh,
         *h -= (*winh + border_space);
     } else {
         if (minw < 0) {
-            *winw = (*w - COLNO - border_space);
+            *winw = (*w - COLNO * CURSES_MAP_CW - border_space);
             if (-minw > *winw)
                 *winw = -minw;
         } else
@@ -102,7 +102,7 @@ curses_create_main_windows(void)
     int message_orientation = 0;
     int status_orientation = 0;
     int border_space = 0;
-    int hspace = term_cols - 80;
+    int hspace = term_cols - 80 * CURSES_MAP_CW;
     boolean borders = FALSE, noperminv_borders = FALSE;
 
     switch (iflags.wc2_windowborders) {
@@ -124,7 +124,8 @@ curses_create_main_windows(void)
         FALLTHROUGH;
         /*FALLTHRU*/
     case 2:                     /* Auto */
-        borders = (term_cols >= 80 + 2 && term_rows >= 24 + 2);
+        borders = (term_cols >= 80 * CURSES_MAP_CW + 2
+                   && term_rows >= 24 + 2);
         break;
     }
 
@@ -252,8 +253,8 @@ curses_create_main_windows(void)
                                 &map_x, &map_y, &map_width, &map_height,
                                 border_space, -1, -25);
 
-        if (map_width > COLNO)
-            map_width = COLNO;
+        if (map_width > COLNO * CURSES_MAP_CW)
+            map_width = COLNO * CURSES_MAP_CW;
         if (map_height > ROWNO)
             map_height = ROWNO;
 
